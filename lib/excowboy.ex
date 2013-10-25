@@ -1,28 +1,61 @@
 defmodule Mix.Tasks.Excowboy do
     use Mix.Task
 
-    import Mix.Generator
-    import Mix.Utils, only: [camelize: 1, underscore: 1]
+		def run(_) do
+			IO.puts "Use 'mix excowboy.new'"
+		end
 
-    defmodule Generate do
+    defmodule New do
+
+			@shortdoc "Creates a skeleton Cowboy project."
+
+			@moduledoc """
+      Creates a new Cowboy project skeleton.
+      Expects a path for the project name.
+
+         mix excowboy.new [--module MODULE] [--port PORT]
+
+      A project at the given PATH  will be created. The
+      application name and module name will be retrieved
+      from the path, unless `--module` is given.
+
+      A `--port` option can be given to specify the port on which to listen. The default is 8080.
+
+      ## Examples
+
+        mix excowboy.new foo --port 9090
+
+      Creates the directory foo with a Cowboy project listening on port 9090.
+
+        cd foo
+        mix deps.get
+        mix compile
+        mix run --no-halt
+
+      Go to http://localhost:9090
+      """
+
+			import Mix.Generator
+			import Mix.Utils, only: [camelize: 1, underscore: 1]
+
       def run(argv) do
-        { opts, argv, _ } = OptionParser.parse(argv, switches: [bare: :boolean, umbrella: :boolean])
+        { opts, argv, _ } = OptionParser.parse(argv, switches: [])
 
-        IO.puts inspect argv
         case argv do
           [] ->
-            IO.puts "no args"
+						raise Mix.Error, message: "Expected PATH to be given, please use `mix excowboy.new PATH`"
           [path|_] ->
             name = Path.basename(Path.expand(path))
             check_project_name!(name)
 						File.mkdir_p!(path)
-						File.cd! path, fn -> do_generate(name, opts) end
+						File.cd! path, fn -> do_generate(name, path, opts) end
         end
       end
 
-      defp do_generate(app, opts) do
+      defp do_generate(app, path, opts) do
 				mod     = opts[:module] || camelize(app)
-				assigns = [app: app, mod: mod]
+				port    = opts[:port] || 8080
+				assigns = [app: app, mod: mod, port: port]
 
 				create_file "README.md",  readme_template(assigns)
 				create_file ".gitignore", gitignore_text
@@ -44,6 +77,7 @@ defmodule Mix.Tasks.Excowboy do
     You can use mix to compile it, test it, and more:
 
         cd #{path}
+        mix deps.get
         mix compile
         mix test
 
@@ -51,7 +85,7 @@ defmodule Mix.Tasks.Excowboy do
 
        mix run --no-halt
 
-    And point your browser at http://localhost:8080
+    And point your browser at http://localhost:#{port}
 
     Run `mix help` for more information.
     """
@@ -118,7 +152,7 @@ defmodule Mix.Tasks.Excowboy do
                    {:_, [{"/", <%= @mod %>.TopPageHandler, []}]}
                  ])
       {:ok, _} = :cowboy.start_http(:http, 100,
-                                    [port: 8080],
+                                    [port: <%= @port %>],
                                     [env: [dispatch: dispatch]])
       <%= @mod %>.Supervisor.start_link
     end
